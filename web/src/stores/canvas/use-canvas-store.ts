@@ -5,6 +5,7 @@ import { nanoid } from "nanoid";
 import { localForageStorage } from "@/lib/localforage-storage";
 import type { CanvasBackgroundMode } from "@/lib/canvas-theme";
 import type { CanvasAssistantSession, CanvasConnection, CanvasNodeData, ViewportTransform } from "@/types/canvas";
+import { deleteProject as cloudDeleteProject, fetchProjects, syncProject as cloudSyncProject } from "@/services/api/sync";
 
 export type CanvasProject = {
     id: string;
@@ -30,6 +31,7 @@ type CanvasStore = {
     deleteProjects: (ids: string[]) => void;
     replaceProjects: (projects: CanvasProject[]) => void;
     updateProject: (id: string, patch: Partial<Pick<CanvasProject, "nodes" | "connections" | "chatSessions" | "activeChatId" | "backgroundMode" | "showImageInfo" | "viewport">>) => void;
+    loadFromCloud: () => Promise<void>;
 };
 
 const initialViewport: ViewportTransform = { x: 0, y: 0, k: 1 };
@@ -81,6 +83,7 @@ export const useCanvasStore = create<CanvasStore>()(
                     viewport: initialViewport,
                 };
                 set((state) => ({ projects: [project, ...state.projects] }));
+                void cloudSyncProject(project);
                 return id;
             },
             importProject: (source) => {
@@ -99,25 +102,42 @@ export const useCanvasStore = create<CanvasStore>()(
                     viewport: source.viewport || initialViewport,
                 };
                 set((state) => ({ projects: [project, ...state.projects] }));
+                void cloudSyncProject(project);
                 return project.id;
             },
             openProject: (id) => {
                 return get().projects.find((item) => item.id === id) || null;
             },
-            renameProject: (id, title) =>
+            renameProject: (id, title) => {
                 set((state) => ({
                     projects: state.projects.map((project) => (project.id === id ? { ...project, title: title.trim() || project.title, updatedAt: new Date().toISOString() } : project)),
-                })),
-            deleteProjects: (ids) =>
+                }));
+                const proj = get().projects.find((p) => p.id === id);
+                if (proj) void cloudSyncProject(proj);
+            },
+            deleteProjects: (ids) => {
                 set((state) => {
                     const projects = state.projects.filter((project) => !ids.includes(project.id));
                     return { projects };
-                }),
+                });
+                ids.forEach((id) => void cloudDeleteProject(id));
+            },
             replaceProjects: (projects) => set({ projects }),
-            updateProject: (id, patch) =>
+            updateProject: (id, patch) => {
                 set((state) => ({
                     projects: state.projects.map((project) => (project.id === id ? { ...project, ...patch, updatedAt: new Date().toISOString() } : project)),
-                })),
+                }));
+                const proj = get().projects.find((p) => p.id === id);
+                if (proj) void cloudSyncProject(proj);
+            },
+            loadFromCloud: async () => {
+                try {
+                    const remoteProjects = await fetchProjects();
+                    set({ projects: remoteProjects as CanvasProject[] });
+                } catch {
+                    // 云端拉取失败时保持本地数据
+                }
+            },
         }),
         {
             name: CANVAS_STORE_KEY,

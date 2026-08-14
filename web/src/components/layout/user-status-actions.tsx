@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
-import { BookOpen, Keyboard, Puzzle, Settings2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { BookOpen, Keyboard, LogOut, Puzzle, Settings2 } from "lucide-react";
 
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { GitHubLink } from "@/components/layout/github-link";
@@ -9,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useConfigStore } from "@/stores/use-config-store";
 import { useThemeStore } from "@/stores/use-theme-store";
+import { useUserStore } from "@/stores/use-user-store";
 
 type UserStatusActionsProps = {
     showConfig?: boolean;
@@ -22,6 +24,9 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
     const setTheme = useThemeStore((state) => state.setTheme);
     const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
     const canvasTheme = canvasThemes[theme];
+    const user = useUserStore((s) => s.user);
+    const logout = useUserStore((s) => s.logout);
+    const navigate = useNavigate();
     const naturalIconClass = "inline-flex size-7 shrink-0 items-center justify-center text-stone-600 transition hover:text-stone-950 dark:text-stone-300 dark:hover:text-white [&_svg]:size-4";
     const iconStyle: CSSProperties | undefined = variant === "canvas" ? { color: canvasTheme.node.text } : undefined;
     const versionStyle = iconStyle;
@@ -50,6 +55,26 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
                 <button type="button" className={naturalIconClass} style={iconStyle} onClick={onOpenShortcuts} aria-label="快捷键" title="快捷键">
                     <Keyboard className="size-4" />
                 </button>
+            ) : null}
+            {user ? (
+                <>
+                    <span className="hidden text-sm sm:inline" style={iconStyle}>
+                        {user.displayName}
+                    </span>
+                    <button
+                        type="button"
+                        className={naturalIconClass}
+                        style={iconStyle}
+                        onClick={() => {
+                            logout();
+                            navigate("/login");
+                        }}
+                        aria-label="退出登录"
+                        title="退出登录"
+                    >
+                        <LogOut className="size-4" />
+                    </button>
+                </>
             ) : null}
         </div>
     );

@@ -1,18 +1,37 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
-import { App } from "antd";
+import { App, Spin } from "antd";
 
 import { createModelChannel, useConfigStore } from "@/stores/use-config-store";
+import { useUserStore } from "@/stores/use-user-store";
+import { useCanvasStore } from "@/stores/canvas/use-canvas-store";
 import { usePromptSourceScheduler } from "@/hooks/use-prompt-source-scheduler";
 
 export function ClientRootInit({ children }: { children: ReactNode }) {
     const { message } = App.useApp();
     const handledConfigParams = useRef(false);
+    const cloudLoaded = useRef(false);
     const updateConfig = useConfigStore((state) => state.updateConfig);
     const config = useConfigStore((state) => state.config);
     const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
+    const initAuth = useUserStore((s) => s.initAuth);
+    const isAuthLoading = useUserStore((s) => s.isAuthLoading);
+    const isAuthenticated = useUserStore((s) => s.isAuthenticated);
+    const loadFromCloud = useCanvasStore((s) => s.loadFromCloud);
 
     usePromptSourceScheduler();
+
+    useEffect(() => {
+        void initAuth();
+    }, [initAuth]);
+
+    // 认证成功后从云端拉取画布数据
+    useEffect(() => {
+        if (isAuthenticated && !cloudLoaded.current) {
+            cloudLoaded.current = true;
+            void loadFromCloud();
+        }
+    }, [isAuthenticated, loadFromCloud]);
 
     useEffect(() => {
         if (handledConfigParams.current) return;
@@ -46,6 +65,14 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
         openConfigDialog(false);
         message.success("已导入本地直连配置");
     }, [config.channels, message, openConfigDialog, updateConfig]);
+
+    if (isAuthLoading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                <Spin size="large" />
+            </div>
+        );
+    }
 
     return <>{children}</>;
 }

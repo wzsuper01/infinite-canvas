@@ -5,7 +5,26 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
+    depends_on:
+      - server
     # 统计分析（可选，默认关闭）。每家一个独立变量，填了谁就启用谁，可同时启用多家：
     # environment:
     #   ANALYTICS_GA4_ID: G-XXXXXXXXXX                    # Google Analytics 4 衡量 ID
     #   ANALYTICS_BAIDU_ID: xxxxxxxxxxxxxxxxxxxxxxxxxxxx   # 百度统计站点 ID
+    #   API_BASE_URL: http://server:4000                    # 后端 API 地址（容器内通信）
+
+  server:
+    build: ./server
+    container_name: infinite-canvas-server
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+    volumes:
+      - server-data:/app/data
+    environment:
+      JWT_SECRET: change-this-in-production
+      CORS_ORIGIN: http://localhost:3000
+      # PORT: 4000
+
+volumes:
+  server-data:
